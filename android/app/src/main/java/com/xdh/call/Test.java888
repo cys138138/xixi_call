@@ -1,0 +1,30 @@
+package com.xdh.call;
+
+import android.content.Context;
+import android.text.TextUtils;
+import android.widget.Toast;
+
+import io.flutter.plugin.common.MethodCall;
+import io.flutter.plugin.common.MethodChannel;
+import io.flutter.view.FlutterView;
+
+
+public class Test {
+    private static final String CHANNEL = "com.flyou.test/android";
+    public static void register(Context cxt, FlutterView fv){
+        new MethodChannel(fv, CHANNEL).setMethodCallHandler(
+            new MethodChannel.MethodCallHandler() {
+                @Override
+                public void onMethodCall(MethodCall call, MethodChannel.Result result) {
+                    System.out.println(call.method);
+                    if (call.method.equals("showToast")) {
+                        if (call.hasArgument("msg") && !TextUtils.isEmpty(call.argument("msg").toString())) {
+                            Toast.makeText(cxt, call.argument("msg").toString(), Toast.LENGTH_SHORT).show();
+                        } else {
+                            Toast.makeText(cxt, "toast text must not null", Toast.LENGTH_SHORT).show();
+                        }
+                    }
+                }
+            });
+    }
+}
