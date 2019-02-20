@@ -5,7 +5,6 @@ import 'package:audio_recorder/audio_recorder.dart';
 import 'package:flutter/services.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:url_launcher/url_launcher.dart';
 
 // 资讯列表页面
 class Audio extends StatefulWidget {
@@ -109,11 +108,11 @@ class AudioState extends State<Audio> {
   }
   _launchURL() async {
     const url = 'tel://15807657230';
-    if (await canLaunch(url)) {
-      await launch(url);
-    } else {
-      throw 'Could not launch $url';
-    }
+//    if (await canLaunch(url)) {
+//      await launch(url);
+//    } else {
+//      throw 'Could not launch $url';
+//    }
   }
   callPhone(String msg) async {
     try {

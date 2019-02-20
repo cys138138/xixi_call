@@ -1,3 +1,8 @@
+import 'package:call/OsApplication.dart';
+import 'package:call/events/LoginEvent.dart';
+import 'package:call/utils/Api.dart';
+import 'package:call/utils/SpUtils.dart';
+import 'package:call/utils/TsUtils.dart';
 import 'package:flutter/material.dart';
 
 class Login extends StatefulWidget {
@@ -112,9 +117,38 @@ class _Login extends State<Login> {
                   ),
                   MaterialButton(
                     onPressed: () {
-                      if(_usernameController.text.toString().isEmpty){
-
+                      if(_usernameController.text.toString().trim().isEmpty){
+                        TsUtils.showShort("用户名不能为空");
+                        return;
                       }
+                      if(_passwordController.text.toString().trim().isEmpty){
+                        TsUtils.showShort("密码不能为空");
+                        return;
+                      }
+                      Api.post(Api.LOGIN_URL,data: {
+                        'username':_usernameController.text.toString().trim(),
+                        'password':_passwordController.text.toString().trim(),
+                      }).then((result){
+                        if(result["code"] == 0){
+                          TsUtils.showShort(result["msg"]);
+                          return;
+                        }
+                        Map<String, dynamic> map = {
+                          'user_id':0,
+                          'nickname':_usernameController.text.toString().trim(),
+                          'token':result['token'],
+                          'avatar':result['avatar'],
+                        };
+                        SpUtils.map2UserInfo(map).then((userInfoBean) {
+                          if (userInfoBean != null) {
+                            OsApplication.eventBus.fire(new LoginEvent(userInfoBean.token));
+                            SpUtils.saveUserInfo(userInfoBean);
+                            Navigator.pop(context);
+                          }
+                        });
+
+                      });
+
                     },
                     child: Container(
                       padding: EdgeInsets.all(9.0),
