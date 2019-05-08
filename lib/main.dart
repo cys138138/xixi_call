@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:call/OsApplication.dart';
 import 'package:call/events/LoginEvent.dart';
@@ -10,6 +11,8 @@ import 'package:call/utils/Api.dart';
 import 'package:call/utils/SpUtils.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:xdh_call/xdh_call.dart';
 
 main() {
   runApp(MyApp());
@@ -19,6 +22,15 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      localizationsDelegates: [
+        // ... app-specific localization delegate[s] here
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+      ],
+      supportedLocales: [
+        const Locale('zh', 'CH'), // English
+        // ... other locales the app supports
+      ],
       debugShowCheckedModeBanner: false,
       home: MyHomePage(title: '通话列表'),
     );
@@ -36,9 +48,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
   int time = 0;
   Timer _timer;
+  var socket = null;
+
+  var token;
 
   _MyHomePageState() {
-    initSocket();
     _initEvent();
     _getUserInfo();
   }
@@ -61,7 +75,7 @@ class _MyHomePageState extends State<MyHomePage> {
   void startTime() {
     _timer = new Timer.periodic(const Duration(seconds: 30), (timer) {
       try {
-        socket.sink.add("client send ping");
+        socket.sink.add("{'type':'ping','data':''}");
       } catch (e) {
         initSocket();
         print("重新初始化");
@@ -69,17 +83,37 @@ class _MyHomePageState extends State<MyHomePage> {
     });
   }
 
-  var socket = null;
+
 
   initSocket() async {
     if (socket == null) {
       socket = await IOWebSocketChannel.connect(Api.SOCKET_HOST);
+
       socket.stream.listen((message) {
-        print(message);
+        var jsonStr = json.decode(message);
+        bindSocket(jsonStr);
+        print(jsonStr);
       });
       if (socket != null) {
         startTime();
       }
+    }
+  }
+
+  void bindSocket(var jsonStr){
+    if(jsonStr['type'] == 'init'){
+      Api.post(Api.BIND_UID_URL+token,data: {
+        'client_id':jsonStr['client_id'],
+        'unique_id':'15807657230',
+      }).then((res){
+        print(res);
+      });
+    }
+    else if(jsonStr['type'] == 'callphone'){
+      XdhCall.callphone("call",is_confirm:false,phone_number:jsonStr['data']['mobile']);
+    }
+    else if(jsonStr['type'] == 'callphone'){
+      XdhCall.callphone("call",is_confirm:false,phone_number:jsonStr['data']['mobile']);
     }
   }
 
@@ -140,6 +174,27 @@ class _MyHomePageState extends State<MyHomePage> {
     OsApplication.eventBus.on<LoginEvent>().listen((event) {
       _getUserInfo();
     });
+
+  }
+
+  /**
+   * 登录之后
+   */
+  void _loinAfter(){
+    initSocket();
+    XdhCall(_onEvent,_onError);
+  }
+
+  //监听通话状态
+//1.初始化
+//2.定义回调方法
+  void _onEvent(Object event) {
+    print("调用自定义收到回复");
+    print(event);
+  }
+
+  void _onError(Object error) {
+    print("收到错误");
   }
 
   _login() async {
@@ -155,6 +210,11 @@ class _MyHomePageState extends State<MyHomePage> {
       print(userInfoBean.token);
       if (userInfoBean.token == null) {
         return _login();
+      }else{
+        setState(() {
+          token = userInfoBean.token;
+        });
+        _loinAfter();
       }
     });
   }
