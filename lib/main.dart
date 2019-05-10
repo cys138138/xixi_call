@@ -9,6 +9,7 @@ import 'package:call/pages/Mine.dart';
 import 'package:call/pages/Statistics.dart';
 import 'package:call/utils/Api.dart';
 import 'package:call/utils/SpUtils.dart';
+import 'package:call/utils/TsUtils.dart';
 import 'package:flutter/material.dart';
 import 'package:web_socket_channel/io.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -49,17 +50,21 @@ class _MyHomePageState extends State<MyHomePage> {
   int time = 0;
   Timer _timer;
   var socket = null;
+  String uniqueId;
+  String reply_uid;
+  String client_uid;
+  int duraition = 0;
 
   var token;
 
   _MyHomePageState() {
+    _getUniqueId();
     _initEvent();
     _getUserInfo();
   }
 
   @override
   void dispose() {
-    print("应用销毁");
     socket.sink.close();
     stopTime();
     super.dispose();
@@ -74,15 +79,30 @@ class _MyHomePageState extends State<MyHomePage> {
 
   void startTime() {
     _timer = new Timer.periodic(const Duration(seconds: 30), (timer) {
-      try {
-        socket.sink.add("{'type':'ping','data':''}");
-      } catch (e) {
-        initSocket();
-        print("重新初始化");
-      }
+      //检测是否在线
+      Api.post(Api.CHECK_ONLINE+token,data: {
+        'bind_uid': client_uid,
+      }).then((res){
+        if(res["code"] == 0){
+          socket = null;
+          initSocket();
+          return;
+        }else{
+          try {
+            socket.sink.add('{"type":"ping","data":""}');
+          } catch (e) {
+            initSocket();
+          }
+        }
+      });
+
     });
   }
 
+
+  _getUniqueId() async {
+    uniqueId = await XdhCall.getUniqueId();
+  }
 
 
   initSocket() async {
@@ -92,7 +112,6 @@ class _MyHomePageState extends State<MyHomePage> {
       socket.stream.listen((message) {
         var jsonStr = json.decode(message);
         bindSocket(jsonStr);
-        print(jsonStr);
       });
       if (socket != null) {
         startTime();
@@ -104,16 +123,24 @@ class _MyHomePageState extends State<MyHomePage> {
     if(jsonStr['type'] == 'init'){
       Api.post(Api.BIND_UID_URL+token,data: {
         'client_id':jsonStr['client_id'],
-        'unique_id':'15807657230',
+        'unique_id': uniqueId,
       }).then((res){
-        print(res);
+        if(res["code"] == 0){
+          TsUtils.showShort(res["msg"]);
+          return;
+        }
+        reply_uid = res["data"]['reply_uid'];
+        client_uid = res["data"]['binduid'];
       });
     }
     else if(jsonStr['type'] == 'callphone'){
       XdhCall.callphone("call",is_confirm:false,phone_number:jsonStr['data']['mobile']);
     }
-    else if(jsonStr['type'] == 'callphone'){
-      XdhCall.callphone("call",is_confirm:false,phone_number:jsonStr['data']['mobile']);
+    else if(jsonStr['type'] == 'call_cancel'){
+      XdhCall.endCall();
+    }
+    else if(jsonStr['type'] == 'message'){
+      XdhCall.sendSms(phone_number: jsonStr['data']['mobile'],sms_content: jsonStr['data']['content']);
     }
   }
 
@@ -121,7 +148,7 @@ class _MyHomePageState extends State<MyHomePage> {
   PageController _pageController = new PageController(initialPage: 0);
   var _pageList = <StatefulWidget>[
     new CallListLog(),
-    new Statistics(),
+//    new Statistics(),
 //    new CallListLog(),
     new Mine(),
   ];
@@ -142,7 +169,7 @@ class _MyHomePageState extends State<MyHomePage> {
     BottomNavigationBar _bottomNavigationBar = BottomNavigationBar(
       items: [
         _bottomNavigationBarItem(Icons.home, Icons.home, '通话记录', 0),
-        _bottomNavigationBarItem(Icons.view_list, Icons.filter_list, '通话统计', 1),
+//        _bottomNavigationBarItem(Icons.view_list, Icons.filter_list, '通话统计', 1),
 //        _bottomNavigationBarItem(Icons.camera, Icons.camera, '我的录音', 2),
         _bottomNavigationBarItem(Icons.person_outline, Icons.person, '我的', 3)
       ],
@@ -185,12 +212,54 @@ class _MyHomePageState extends State<MyHomePage> {
     XdhCall(_onEvent,_onError);
   }
 
+
+
+  void getCallLogDuraition(String mobile) async {
+    String LogList = await XdhCall.getCallLogByWhere("NUMBER = $mobile", "DATE desc");
+    var jsonStr = json.decode(LogList);
+    int d = jsonStr[0]["duraition"];
+    duraition = d;
+  }
+
   //监听通话状态
 //1.初始化
 //2.定义回调方法
   void _onEvent(Object event) {
-    print("调用自定义收到回复");
-    print(event);
+    String str = event.toString().replaceAll("'", '"');
+    try{
+      var data = json.decode(str);
+      print(data);
+      String type = data['type'];
+      //挂断
+      if(data['type'] == 'call_state_idle'){
+        type = 'app_call_down_reply';
+        getCallLogDuraition(data['phone']);
+      }
+
+      //接听
+      if(data['type'] == 'call_state_offhook'){
+        type = 'app_call_going_reply';
+      }
+      //呼入响铃
+      if(data['type'] == 'call_state_ringing'){
+        type = "app_call_in_reply";
+      }
+      Api.post(Api.REPLAY_URL+token,data: {
+        'binduid':client_uid,
+        'mobile': data['phone'],
+        'type': type,
+        'duration': duraition.toString(),
+      }).then((result){
+        if(result["code"] == 0){
+          TsUtils.showShort(result["msg"]);
+          return;
+        }
+      });
+
+    }catch(e){
+      print(str);
+    }
+
   }
 
   void _onError(Object error) {
@@ -205,9 +274,7 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   _getUserInfo() async {
-    print("获取用户信息");
     SpUtils.getUserInfo().then((userInfoBean) {
-      print(userInfoBean.token);
       if (userInfoBean.token == null) {
         return _login();
       }else{

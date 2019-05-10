@@ -1,5 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
-import 'package:call_log/call_log.dart';
+import 'package:xdh_call/xdh_call.dart';
 
 class CallListLog extends StatefulWidget {
   @override
@@ -12,21 +14,26 @@ class _CallListLog extends State<CallListLog> {
   var phoneLog = [];
 
   _CallListLog(){
+    phoneLog = [];
     getCallLog();
   }
 
+
   void getCallLog() async {
-    Iterable<CallLogEntry> entries = await CallLog.get();
+    String LogList = await XdhCall.getCallLog();
+    var jsonStr = json.decode(LogList);
+    print(jsonStr);
     var x = [];
-    for (var n in entries) {
-      var date = new DateTime.fromMicrosecondsSinceEpoch(n.timestamp*1000);
-      String dtime = date.year.toString()+'-'+date.month.toString()+'-'+date.day.toString()+' '+date.hour.toString()+':'+date.minute.toString()+":"+date.second.toString();
+    for (var n in jsonStr) {
+      var date = new DateTime.fromMillisecondsSinceEpoch(n["date"]);
+      String dtime = "${date.year.toString()}-${date.month.toString().padLeft(2,'0')}-${date.day.toString().padLeft(2,'0')} ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}";
+
       if(true || n.duration > 0){
         x.add({
-          'number': n.number.toString(),
-          'name': n.name.toString(),
-          'callType': n.callType,
-          'duration': n.duration.toString(),
+          'number': n["number"],
+          'name': n["number"],
+          'callType': n["type"],
+          'duration': n["duraition"],
           'time': dtime,
         });
       }
@@ -48,15 +55,16 @@ class _CallListLog extends State<CallListLog> {
     }else{
       _body = ListView.builder(itemBuilder: (cxt,index){
         var rowInfo = phoneLog[index];
+        print(rowInfo);
         return Column(
           children: <Widget>[
             ListTile(
               onTap: (){
                 print(rowInfo);
               },
-              title: new Text(rowInfo["number"]),
-              subtitle: Text(rowInfo["time"]),
-              trailing: Text(rowInfo["duration"]+'s'),
+              title: new Text(rowInfo["number"].toString()),
+              subtitle: Text(rowInfo["time"].toString()),
+              trailing: Text(rowInfo["duration"].toString()+'s'),
             ),
             new Divider(height: 1.0)
           ],

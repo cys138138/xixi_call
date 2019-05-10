@@ -15,13 +15,17 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  call_log: ^1.0.6
+  flutter_localizations:
+    sdk: flutter
+  call_log: ^2.0.0
   audio_recorder: ^0.0.6
   audioplayers: ^0.8.1
   web_socket_channel: ^1.0.9
   http: ^0.12.0+1
   fluttertoast: ^2.2.3
   event_bus: "^1.0.1"
+  flutter_refresh : ^0.0.1
+  xdh_call: ^0.0.7
   shared_preferences: ^0.4.1
 
 

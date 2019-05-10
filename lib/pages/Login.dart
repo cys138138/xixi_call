@@ -135,9 +135,9 @@ class _Login extends State<Login> {
                         }
                         Map<String, dynamic> map = {
                           'user_id':0,
-                          'nickname':_usernameController.text.toString().trim(),
-                          'token':result['token'],
-                          'avatar':result['avatar'],
+                          'nickname':result['data']['user_name'],
+                          'token':result['data']['token'],
+                          'avatar':'https://heehee.com.cn/web/static/img/icon-case-3.017088c.png',
                         };
                         SpUtils.map2UserInfo(map).then((userInfoBean) {
                           if (userInfoBean != null) {
